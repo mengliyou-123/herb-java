@@ -76,6 +76,22 @@ public class AiController {
         return aiService.diagnosisStream(userId, symptoms);
     }
 
+    @PostMapping(value = "/herb-recognition-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter herbRecognitionStream(@RequestBody Map<String, String> params) {
+        Map<String, Object> map = ThreadLocalUtil.get();
+        Integer userId = (Integer) map.get("id");
+        String imageUrl = params.get("imageUrl");
+        return aiService.herbRecognitionStream(userId, imageUrl);
+    }
+
+    @PostMapping(value = "/tongue-diagnosis-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter tongueDiagnosisStream(@RequestBody Map<String, String> params) {
+        Map<String, Object> map = ThreadLocalUtil.get();
+        Integer userId = (Integer) map.get("id");
+        String imageUrl = params.get("imageUrl");
+        return aiService.tongueDiagnosisStream(userId, imageUrl);
+    }
+
     @GetMapping("/history")
     public Result<List<DiagnosisHistory>> getHistory() {
         Map<String, Object> map = ThreadLocalUtil.get();
