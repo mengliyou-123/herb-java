@@ -71,4 +71,11 @@ public class PostController {
         return Result.success();
     }
 
+    //更新帖子
+    @PutMapping("update")
+    public Result update(@RequestBody Post p){
+        postService.update(p);
+        return Result.success();
+    }
+
 }

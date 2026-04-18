@@ -21,4 +21,6 @@ public interface PostService {
     List<Post> hotPost();
 
     void deleteByUserId(Integer userId);
+
+    void update(Post p);
 }

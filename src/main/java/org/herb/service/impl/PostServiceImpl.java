@@ -95,4 +95,10 @@ public class PostServiceImpl implements PostService {
     public void deleteByUserId(Integer userId) {
         postMapper.deleteByUserId(userId);
     }
+
+    @Override
+    @Transactional
+    public void update(Post p) {
+        postMapper.update(p);
+    }
 }

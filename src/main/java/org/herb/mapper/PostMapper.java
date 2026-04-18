@@ -30,4 +30,7 @@ public interface PostMapper {
 
     @Delete("delete from post where poster_id=#{userId}")
     void deleteByUserId(Integer userId);
+
+    @Update("update post set title=#{title}, content=#{content}, cover_img=#{coverImg} where id=#{id}")
+    void update(Post p);
 }
