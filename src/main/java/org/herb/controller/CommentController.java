@@ -18,6 +18,9 @@ public class CommentController {
     //发布评论（前端传rank）
     @PostMapping
     public Result publish(@RequestBody Comment comment){
+        if (comment.getContent() == null || comment.getContent().trim().isEmpty()) {
+            return Result.error("评论内容不能为空，请输入有效内容后再发表");
+        }
         commentService.publish(comment);
         return Result.success();
     }
