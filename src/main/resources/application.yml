@@ -3,7 +3,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/herb01?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: root
-    password: mengliyou
+    password: 123456
   data:
     redis:
       host: localhost
@@ -23,3 +23,9 @@ spring:
 mybatis:
   configuration:
     map-underscore-to-camel-case: true #开启驼峰命名和下划线命名的自动转换
+
+# tcm_merge 自建问答 Agent。Agent 由独立的 FastAPI 服务启动，Java 后端负责内部转发。
+baicaoju:
+  agent:
+    base-url: ${TCM_AGENT_BASE_URL:http://localhost:7862}
+    request-timeout-ms: ${TCM_AGENT_REQUEST_TIMEOUT_MS:180000}

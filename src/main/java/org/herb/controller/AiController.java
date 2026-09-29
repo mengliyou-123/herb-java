@@ -113,4 +113,21 @@ public class AiController {
         diagnosisHistoryService.deleteHistory(id);
         return Result.success();
     }
+
+    /**
+     * Agent 由前端直接调用；问答完成后，前端通过此接口把结果归档到当前登录用户。
+     * userId 始终从登录上下文获取，不信任请求体中的用户 id。
+     */
+    @PostMapping("/history")
+    public Result<Void> saveHistory(@RequestBody Map<String, String> params) {
+        Map<String, Object> map = ThreadLocalUtil.get();
+        Integer userId = (Integer) map.get("id");
+        String question = params.get("question");
+        String answer = params.get("answer");
+        if (question == null || question.isBlank() || answer == null || answer.isBlank()) {
+            return Result.error("问诊问题和回答不能为空");
+        }
+        diagnosisHistoryService.addDiagnosisHistory(userId, "diagnosis", question, answer);
+        return Result.success();
+    }
 }

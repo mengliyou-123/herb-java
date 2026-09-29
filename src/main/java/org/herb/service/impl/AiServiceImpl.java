@@ -11,6 +11,7 @@ import com.zhipu.oapi.service.v4.model.*;
 import io.reactivex.Flowable;
 import org.herb.service.AiService;
 import org.herb.service.DiagnosisHistoryService;
+import org.herb.service.TcmAgentClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -31,6 +32,9 @@ public class AiServiceImpl implements AiService {
 
     @Autowired
     private DiagnosisHistoryService diagnosisHistoryService;
+
+    @Autowired
+    private TcmAgentClient tcmAgentClient;
 
     private static final String API_KEY = "77ac40f6a6004646825d2561dcf9719d.g60df54MeiEE6Nkj";
     private static final ClientV4 client = new ClientV4.Builder(API_KEY).build();
@@ -203,16 +207,16 @@ public class AiServiceImpl implements AiService {
 
     @Override
     public String diagnosis(Integer userId, String symptoms) {
-        String prompt = "你是一位经验丰富的中医师。患者描述的症状如下：\n" + symptoms +
-                       "\n请基于中医理论进行辨证分析，包括：\n" +
-                       "1. 病因分析\n" +
-                       "2. 病机分析\n" +
-                       "3. 辨证结论\n" +
-                       "4. 治疗原则\n" +
-                       "5. 推荐方药\n" +
-                       "6. 生活调养建议\n\n" +
-                       "注意：这只是初步的辨证分析，建议患者到正规中医院就诊。";
-        String answer = sseInvoke(prompt);
+        String answer;
+        try {
+            answer = tcmAgentClient.query(symptoms);
+            if (answer == null || answer.isBlank()) {
+                answer = agentUnavailableMessage();
+            }
+        } catch (Exception exception) {
+            System.err.println("tcm_merge Agent 问诊失败: " + exception.getMessage());
+            answer = agentUnavailableMessage();
+        }
         diagnosisHistoryService.addDiagnosisHistory(userId, "diagnosis", symptoms, answer);
         return answer;
     }
@@ -238,16 +242,65 @@ public class AiServiceImpl implements AiService {
 
     @Override
     public SseEmitter diagnosisStream(Integer userId, String symptoms) {
-        String prompt = "你是一位经验丰富的中医师。患者描述的症状如下：\n" + symptoms +
-                       "\n请基于中医理论进行辨证分析，包括：\n" +
-                       "1. 病因分析\n" +
-                       "2. 病机分析\n" +
-                       "3. 辨证结论\n" +
-                       "4. 治疗原则\n" +
-                       "5. 推荐方药\n" +
-                       "6. 生活调养建议\n\n" +
-                       "注意：这只是初步的辨证分析，建议患者到正规中医院就诊。";
-        return createSseEmitter(prompt, userId, "diagnosis", symptoms);
+        return createAgentSseEmitter(userId, symptoms);
+    }
+
+    /**
+     * 视频问诊和普通问诊共用 tcm_merge Agent。Agent 的 SSE 事件由客户端适配为
+     * 原有页面使用的纯文本 SSE，历史记录仍由百草居后端统一保存。
+     */
+    private SseEmitter createAgentSseEmitter(Integer userId, String question) {
+        SseEmitter emitter = new SseEmitter(180000L);
+        AtomicReference<String> fullResponse = new AtomicReference<>("");
+
+        executorService.execute(() -> {
+            try {
+                tcmAgentClient.stream(question, content -> {
+                    fullResponse.updateAndGet(value -> value + content);
+                    try {
+                        emitter.send(SseEmitter.event().data(content));
+                    } catch (IOException exception) {
+                        throw new RuntimeException("向前端推送 Agent 响应失败", exception);
+                    }
+                });
+
+                if (fullResponse.get().isEmpty()) {
+                    String fallback = agentUnavailableMessage();
+                    fullResponse.set(fallback);
+                    emitter.send(SseEmitter.event().data(fallback));
+                }
+
+                diagnosisHistoryService.addDiagnosisHistory(
+                        userId,
+                        "diagnosis",
+                        question,
+                        fullResponse.get()
+                );
+                emitter.send(SseEmitter.event().name("complete").data("[DONE]"));
+                emitter.complete();
+            } catch (Exception exception) {
+                System.err.println("tcm_merge Agent 流式问诊失败: " + exception.getMessage());
+                try {
+                    emitter.send(SseEmitter.event().data(agentUnavailableMessage()));
+                    emitter.send(SseEmitter.event().name("complete").data("[DONE]"));
+                    emitter.complete();
+                } catch (IOException sendException) {
+                    emitter.completeWithError(sendException);
+                }
+            }
+        });
+
+        emitter.onCompletion(() -> System.out.println("Agent SSE completed"));
+        emitter.onTimeout(() -> {
+            System.out.println("Agent SSE timeout");
+            emitter.complete();
+        });
+        emitter.onError(error -> System.out.println("Agent SSE error: " + error.getMessage()));
+        return emitter;
+    }
+
+    private String agentUnavailableMessage() {
+        return "智能问诊 Agent 暂时不可用，请稍后重试。若症状明显或持续加重，请及时到正规医疗机构就诊。";
     }
 
     @Override
