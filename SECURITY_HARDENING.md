@@ -59,6 +59,10 @@ were merged. The frontend changes are on its `codex/security-hardening` branch.
   trusted reverse proxy requires another interface. API docs are disabled by
   default; set `HERB_API_DOCS_ENABLED=true` only in a trusted development setup.
 - The AI SDK's transitive Fastjson dependency is overridden to 1.2.84.
+- The bundled AI SDK's `ChatApiService` is replaced by a source-compatible
+  class that uses `PropertyNamingStrategies.SNAKE_CASE`; this prevents its
+  initialization failure with the application's Jackson version. Recheck this
+  replacement when upgrading or removing the old SDK.
 - The frontend keeps authentication state in memory. Refreshing the page requires
   a new login; older browser-stored tokens are cleared on load.
 

@@ -1,4 +1,7 @@
-package org.herb.utils.zhipu.oapi.service.v4.api;
+package com.zhipu.oapi.service.v4.api;
+
+// Compatibility replacement for the SDK class: its static mapper referenced
+// PropertyNamingStrategy.SNAKE_CASE, which is absent from the app's Jackson.
 
 import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.annotation.JsonInclude;

@@ -374,7 +374,7 @@ public class AiServiceImpl implements AiService {
                 ModelApiResponse sseModelApiResp = ClientHolder.INSTANCE.invokeModelApi(chatCompletionRequest);
                 
                 if (!sseModelApiResp.isSuccess()) {
-                    emitter.send(SseEmitter.event().data("抱歉，服务暂时不可用，请稍后再试。"));
+                    emitter.send(SseEmitter.event().data("[ERROR]"));
                     emitter.complete();
                     return;
                 }
@@ -394,15 +394,15 @@ public class AiServiceImpl implements AiService {
                     emitter.complete();
                 })
                 .doOnError(error -> {
-                    emitter.send(SseEmitter.event().data("服务暂时不可用，请稍后重试"));
-                    emitter.completeWithError(error);
+                    emitter.send(SseEmitter.event().data("[ERROR]"));
+                    emitter.complete();
                 })
                 .blockingSubscribe();
                 
-            } catch (Exception e) {
+            } catch (Exception | LinkageError e) {
                 try {
-                    emitter.send(SseEmitter.event().data("服务暂时不可用，请稍后重试"));
-                    emitter.completeWithError(e);
+                    emitter.send(SseEmitter.event().data("[ERROR]"));
+                    emitter.complete();
                 } catch (IOException ex) {
                     ex.printStackTrace();
                 }
