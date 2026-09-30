@@ -3,6 +3,7 @@ package org.herb;
 import org.herb.exception.ForbiddenException;
 import org.herb.interceptors.LoginInterceptor;
 import org.herb.controller.HerbController;
+import org.herb.controller.AiController;
 import org.herb.controller.UserController;
 import org.herb.mapper.DiagnosisHistoryMapper;
 import org.herb.mapper.PostMapper;
@@ -75,6 +76,40 @@ class SecurityHardeningTest {
                 HerbController.class.getMethod("delete", Integer.class));
         assertFalse(interceptor.preHandle(request, response, handler));
         assertEquals(403, response.getStatus());
+    }
+
+    @Test
+    void readingAiHistoryDoesNotUseGenerationQuota() throws Exception {
+        StringRedisTemplate redis = mock(StringRedisTemplate.class);
+        @SuppressWarnings("unchecked")
+        ValueOperations<String, String> values = mock(ValueOperations.class);
+        UserMapper users = mock(UserMapper.class);
+        LoginInterceptor interceptor = new LoginInterceptor();
+        ReflectionTestUtils.setField(interceptor, "stringRedisTemplate", redis);
+        ReflectionTestUtils.setField(interceptor, "userMapper", users);
+        String token = JwtUtil.genToken(Map.of("id", 7, "username", "reader"));
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.get(token)).thenReturn(token);
+        User user = new User();
+        user.setId(7);
+        user.setRole("ROLE_USER");
+        when(users.getUserById(7)).thenReturn(user);
+
+        MockHttpServletRequest history = new MockHttpServletRequest("GET", "/ai/history/type");
+        history.addHeader("Authorization", token);
+        HandlerMethod historyHandler = new HandlerMethod(new AiController(),
+                AiController.class.getMethod("getHistoryByType", String.class));
+        assertTrue(interceptor.preHandle(history, new MockHttpServletResponse(), historyHandler));
+        verify(values, never()).increment("ai:daily:7");
+
+        MockHttpServletRequest generation = new MockHttpServletRequest("POST", "/ai/diagnosis");
+        generation.addHeader("Authorization", token);
+        when(values.increment("ai:daily:7")).thenReturn(31L);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        HandlerMethod generationHandler = new HandlerMethod(new AiController(),
+                AiController.class.getMethod("diagnosis", Map.class));
+        assertFalse(interceptor.preHandle(generation, response, generationHandler));
+        assertEquals(429, response.getStatus());
     }
 
     @Test

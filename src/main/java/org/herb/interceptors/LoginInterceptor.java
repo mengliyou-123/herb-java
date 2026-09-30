@@ -66,9 +66,7 @@ public class LoginInterceptor implements HandlerInterceptor {
                 response.setStatus(400);
                 return false;
             }
-            if (handler instanceof HandlerMethod actionHandler &&
-                    java.util.Set.of("AiController", "PcmRecommendController")
-                            .contains(actionHandler.getBeanType().getSimpleName())) {
+            if (handler instanceof HandlerMethod actionHandler && isAiGeneration(actionHandler)) {
                 if (request.getContentLengthLong() > 64 * 1024) {
                     ThreadLocalUtil.remove();
                     response.setStatus(413);
@@ -92,6 +90,18 @@ public class LoginInterceptor implements HandlerInterceptor {
             //不放行
             return false;
         }
+    }
+
+    private boolean isAiGeneration(HandlerMethod handler) {
+        String controller = handler.getBeanType().getSimpleName();
+        String action = handler.getMethod().getName();
+        if (controller.equals("PcmRecommendController")) {
+            return action.equals("recommend") || action.equals("recommendStream");
+        }
+        return controller.equals("AiController") && java.util.Set.of(
+                "herbQA", "prescriptionAnalysis", "diagnosis", "herbQAStream",
+                "prescriptionAnalysisStream", "diagnosisStream",
+                "herbRecognitionStream", "tongueDiagnosisStream").contains(action);
     }
 
     private boolean requiresAdmin(HttpServletRequest request, Object handler) {
