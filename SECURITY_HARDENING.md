@@ -7,9 +7,11 @@ were merged. The frontend changes are on its `codex/security-hardening` branch.
 
 ## Before running
 
-1. Apply [the database migration](docs/security-migration.sql) after checking and
-   removing duplicate collection rows. The password column must hold the new
-   PBKDF2 hash. Existing MD5 passwords are upgraded when users next log in.
+1. The local `herb01` schema was checked on 2026-09-30: the password column
+   is VARCHAR(255), the three collection uniqueness indexes exist, and there
+   are no duplicate collection rows. For another database, apply
+   [the migration](docs/security-migration.sql) after checking duplicates.
+   Existing MD5 passwords are upgraded when users next log in.
 2. For this local checkout, use the ignored `.env.local` with `start-local.ps1`.
    Set `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `HERB_JWT_SECRET`
    (at least 32 characters), `OSS_ACCESS_KEY_ID`, `OSS_ACCESS_KEY_SECRET`,
