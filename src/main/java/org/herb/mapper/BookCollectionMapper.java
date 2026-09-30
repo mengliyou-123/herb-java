@@ -17,7 +17,13 @@ public interface BookCollectionMapper {
     @Delete("delete from book_collection where id=#{id}")
     void delete(Integer id);
 
-    @Update("update book set coll_num=coll_num-1 where id=#{id}")
+    @Select("select book_id from book_collection where id=#{id} and user_id=#{userId}")
+    Integer findOwnedBookId(Integer id, Integer userId);
+
+    @Delete("delete from book_collection where id=#{id} and user_id=#{userId}")
+    int deleteOwned(Integer id, Integer userId);
+
+    @Update("update book set coll_num=greatest(coll_num-1,0) where id=#{id}")
     void subtractCollNum(Integer id);
 
     @Select("select * from book_collection where book_id=#{bookId} and user_id=#{userId}")

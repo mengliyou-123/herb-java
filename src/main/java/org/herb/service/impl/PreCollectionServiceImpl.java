@@ -9,6 +9,9 @@ import org.herb.pojo.Prescription;
 import org.herb.pojo.Result;
 import org.herb.service.PreCollectionService;
 import org.herb.utils.ThreadLocalUtil;
+import org.herb.utils.CurrentUser;
+import org.herb.exception.ForbiddenException;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -22,35 +25,46 @@ public class PreCollectionServiceImpl implements PreCollectionService {
     private PreCollectionMapper preCollectionMapper;
 
     @Override
+    @Transactional
     public void collect(Integer preId) {
         Map<String, Object> map = ThreadLocalUtil.get();
         Integer userId = (Integer) map.get("id");
-        preCollectionMapper.collect(preId, userId);
+        if (preCollectionMapper.isCollect(userId, preId) == null) {
+            preCollectionMapper.collect(preId, userId);
+            preCollectionMapper.addCollNum(preId);
+        }
     }
 
     @Override
     public void addCollNum(Integer preId) {
-        preCollectionMapper.addCollNum(preId);
+        throw new ForbiddenException("请使用收藏接口");
     }
 
     @Override
+    @Transactional
     public void delete(Integer id) {
-        preCollectionMapper.delete(id);
+        Integer preId = preCollectionMapper.findOwnedPreId(id, CurrentUser.id());
+        if (preId == null) throw new ForbiddenException("无权删除该收藏");
+        if (preCollectionMapper.deleteOwned(id, CurrentUser.id()) == 1) {
+            preCollectionMapper.subtractCollNum(preId);
+        }
     }
 
     @Override
     public void subtractCollNum(Integer preId) {
-        preCollectionMapper.subtractCollNum(preId);
+        throw new ForbiddenException("请使用取消收藏接口");
     }
 
     @Override
     public PreCollection isCollect(Integer userId, Integer preId) {
+        CurrentUser.requireSelf(userId);
         PreCollection pc = preCollectionMapper.isCollect(userId, preId);
         return pc;
     }
 
     @Override
     public PageBean<Prescription> list(Integer pageNum, Integer pageSize, Integer userId) {
+        CurrentUser.requireSelf(userId);
         //创建pageBean对象封装查询好的对象
         PageBean<Prescription> pb = new PageBean<>();
 
@@ -71,7 +85,7 @@ public class PreCollectionServiceImpl implements PreCollectionService {
 
     @Override
     public Integer getPreIdById(Integer id) {
-        return preCollectionMapper.getPreIdById(id);
+        return preCollectionMapper.findOwnedPreId(id, CurrentUser.id());
     }
 
     @Override

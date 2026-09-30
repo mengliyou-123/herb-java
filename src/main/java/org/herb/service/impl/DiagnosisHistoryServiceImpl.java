@@ -3,6 +3,7 @@ package org.herb.service.impl;
 import org.herb.mapper.DiagnosisHistoryMapper;
 import org.herb.pojo.DiagnosisHistory;
 import org.herb.service.DiagnosisHistoryService;
+import org.herb.utils.CurrentUser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +37,6 @@ public class DiagnosisHistoryServiceImpl implements DiagnosisHistoryService {
 
     @Override
     public void deleteHistory(Integer id) {
-        diagnosisHistoryMapper.delete(id);
+        diagnosisHistoryMapper.deleteForUser(id, CurrentUser.id());
     }
 }

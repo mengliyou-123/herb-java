@@ -8,6 +8,8 @@ import org.herb.pojo.PageBean;
 import org.herb.pojo.Post;
 import org.herb.service.PostService;
 import org.herb.utils.ThreadLocalUtil;
+import org.herb.utils.CurrentUser;
+import org.herb.exception.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,9 @@ public class PostServiceImpl implements PostService {
     @Override
     @Transactional
     public void delete(Integer id) {
+        Post existing = postMapper.findById(id);
+        if (existing == null) throw new NotFoundException("帖子不存在");
+        CurrentUser.requireOwnerOrAdmin(existing.getPosterId());
         postMapper.delete(id);
     }
 
@@ -99,6 +104,9 @@ public class PostServiceImpl implements PostService {
     @Override
     @Transactional
     public void update(Post p) {
+        Post existing = postMapper.findById(p.getId());
+        if (existing == null) throw new NotFoundException("帖子不存在");
+        CurrentUser.requireOwnerOrAdmin(existing.getPosterId());
         postMapper.update(p);
     }
 }

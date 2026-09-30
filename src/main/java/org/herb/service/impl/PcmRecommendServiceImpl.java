@@ -4,7 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.zhipu.oapi.ClientV4;
 import org.herb.utils.zhipu.oapi.Constants;
 import com.zhipu.oapi.service.v4.model.*;
@@ -26,18 +26,20 @@ import static com.zhipu.oapi.service.v4.api.ChatApiService.defaultObjectMapper;
 @Service
 public class PcmRecommendServiceImpl implements PcmRecommendService {
 
-    private static final String API_KEY = "77ac40f6a6004646825d2561dcf9719d.g60df54MeiEE6Nkj";
-    private static final ClientV4 client = new ClientV4.Builder(API_KEY).build();
+    private static String requiredApiKey() { String key = System.getenv("ZHIPU_API_KEY"); if (key == null || key.isBlank()) throw new IllegalStateException("ZHIPU_API_KEY is not configured"); return key; }
+    private static final class ClientHolder { private static final ClientV4 INSTANCE = new ClientV4.Builder(requiredApiKey()).build(); }
     private static final ObjectMapper mapper = defaultObjectMapper();
     private static final String requestIdTemplate = "mycompany-%d";
     
-    private static final ExecutorService executorService = Executors.newCachedThreadPool();
+    private static final ExecutorService executorService = new java.util.concurrent.ThreadPoolExecutor(
+            2, 4, 60, java.util.concurrent.TimeUnit.SECONDS,
+            new java.util.concurrent.ArrayBlockingQueue<>(16));
 
     public static ObjectMapper defaultObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-        mapper.setPropertyNamingStrategy(PropertyNamingStrategy.SNAKE_CASE);
+        mapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         mapper.addMixIn(ChatFunction.class, ChatFunctionMixIn.class);
         mapper.addMixIn(ChatCompletionRequest.class, ChatCompletionRequestMixIn.class);
         mapper.addMixIn(ChatFunctionCall.class, ChatFunctionCallMixIn.class);
@@ -59,12 +61,8 @@ public class PcmRecommendServiceImpl implements PcmRecommendService {
                 .requestId(requestId)
                 .build();
         
-        System.out.println("请求参数: " + chatCompletionRequest);
-        ModelApiResponse sseModelApiResp = client.invokeModelApi(chatCompletionRequest);
-        System.out.println("响应状态: " + sseModelApiResp.isSuccess());
+        ModelApiResponse sseModelApiResp = ClientHolder.INSTANCE.invokeModelApi(chatCompletionRequest);
         if (!sseModelApiResp.isSuccess()) {
-            System.err.println("API调用失败: " + sseModelApiResp.getMsg());
-            System.err.println("错误码: " + sseModelApiResp.getCode());
             return "抱歉，服务暂时不可用，请稍后再试。";
         }
         if (sseModelApiResp.isSuccess()) {
@@ -73,19 +71,16 @@ public class PcmRecommendServiceImpl implements PcmRecommendService {
                     .doOnNext(accumulator -> {
                         {
                             if (isFirst.getAndSet(false)) {
-                                System.out.print("Response: ");
                             }
                             if (accumulator.getDelta() != null && accumulator.getDelta().getTool_calls() != null) {
                                 String jsonString = mapper.writeValueAsString(accumulator.getDelta().getTool_calls());
-                                System.out.println("tool_calls: " + jsonString);
                             }
                             if (accumulator.getDelta() != null && accumulator.getDelta().getContent() != null) {
-                                System.out.print(accumulator.getDelta().getContent());
                                 builder.append(accumulator.getDelta().getContent());
                             }
                         }
                     })
-                    .doOnComplete(System.out::println)
+                    .doOnComplete(() -> {})
                     .lastElement()
                     .blockingGet();
 
@@ -101,7 +96,6 @@ public class PcmRecommendServiceImpl implements PcmRecommendService {
             sseModelApiResp.setFlowable(null);
             sseModelApiResp.setData(data);
         }
-        System.out.println("model output:" + JSON.toJSONString(sseModelApiResp));
         String answer = builder.toString();
         return answer;
     }
@@ -137,7 +131,7 @@ public class PcmRecommendServiceImpl implements PcmRecommendService {
                         .requestId(requestId)
                         .build();
 
-                ModelApiResponse sseModelApiResp = client.invokeModelApi(chatCompletionRequest);
+                ModelApiResponse sseModelApiResp = ClientHolder.INSTANCE.invokeModelApi(chatCompletionRequest);
                 
                 if (!sseModelApiResp.isSuccess()) {
                     emitter.send(SseEmitter.event().data("抱歉，服务暂时不可用，请稍后再试。"));
@@ -159,14 +153,14 @@ public class PcmRecommendServiceImpl implements PcmRecommendService {
                     emitter.complete();
                 })
                 .doOnError(error -> {
-                    emitter.send(SseEmitter.event().data("发生错误: " + error.getMessage()));
+                    emitter.send(SseEmitter.event().data("服务暂时不可用，请稍后重试"));
                     emitter.completeWithError(error);
                 })
                 .blockingSubscribe();
                 
             } catch (Exception e) {
                 try {
-                    emitter.send(SseEmitter.event().data("发生错误: " + e.getMessage()));
+                    emitter.send(SseEmitter.event().data("服务暂时不可用，请稍后重试"));
                     emitter.completeWithError(e);
                 } catch (IOException ex) {
                     ex.printStackTrace();
@@ -179,7 +173,7 @@ public class PcmRecommendServiceImpl implements PcmRecommendService {
             System.out.println("SSE timeout");
             emitter.complete();
         });
-        emitter.onError(e -> System.out.println("SSE error: " + e.getMessage()));
+        emitter.onError(e -> System.out.println("SSE error"));
         
         return emitter;
     }

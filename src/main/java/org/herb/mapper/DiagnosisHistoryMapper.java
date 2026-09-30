@@ -24,4 +24,7 @@ public interface DiagnosisHistoryMapper {
     // 删除问诊记录
     @Delete("delete from diagnosis_history where id=#{id}")
     void delete(Integer id);
+
+    @Delete("delete from diagnosis_history where id=#{id} and user_id=#{userId}")
+    void deleteForUser(Integer id, Integer userId);
 }

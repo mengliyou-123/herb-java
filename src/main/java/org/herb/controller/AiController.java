@@ -7,11 +7,14 @@ import org.herb.service.DiagnosisHistoryService;
 import org.herb.utils.ThreadLocalUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 import java.util.Map;
+import java.net.URI;
 
 @RestController
 @RequestMapping("/ai")
@@ -23,10 +26,29 @@ public class AiController {
     @Autowired
     private DiagnosisHistoryService diagnosisHistoryService;
 
+    private void requireText(String value) {
+        if (value == null || value.isBlank() || value.length() > 2000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "输入长度不合规");
+        }
+    }
+
+    private void requireUploadedImage(String value) {
+        try {
+            URI uri = URI.create(value);
+            if ("https".equals(uri.getScheme())
+                    && "herbs-system.oss-cn-beijing.aliyuncs.com".equals(uri.getHost())
+                    && uri.getPath() != null
+                    && uri.getPath().matches("/[a-fA-F0-9-]{36}\\.(jpg|png)")) return;
+        } catch (RuntimeException ignored) {}
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "图片地址无效");
+    }
+
     @GetMapping("/herb-qa")
     public Result<String> herbQA(
             @RequestParam String herbName,
             @RequestParam String question) {
+        requireText(herbName);
+        requireText(question);
         Map<String, Object> map = ThreadLocalUtil.get();
         Integer userId = (Integer) map.get("id");
         String answer = aiService.herbQA(userId, herbName, question);
@@ -38,6 +60,7 @@ public class AiController {
         Map<String, Object> map = ThreadLocalUtil.get();
         Integer userId = (Integer) map.get("id");
         String prescriptionData = params.get("prescriptionData");
+        requireText(prescriptionData);
         String analysis = aiService.prescriptionAnalysis(userId, prescriptionData);
         return Result.success(analysis);
     }
@@ -47,6 +70,7 @@ public class AiController {
         Map<String, Object> map = ThreadLocalUtil.get();
         Integer userId = (Integer) map.get("id");
         String symptoms = params.get("symptoms");
+        requireText(symptoms);
         String result = aiService.diagnosis(userId, symptoms);
         return Result.success(result);
     }
@@ -55,6 +79,8 @@ public class AiController {
     public SseEmitter herbQAStream(
             @RequestParam String herbName,
             @RequestParam String question) {
+        requireText(herbName);
+        requireText(question);
         Map<String, Object> map = ThreadLocalUtil.get();
         Integer userId = (Integer) map.get("id");
         return aiService.herbQAStream(userId, herbName, question);
@@ -65,6 +91,7 @@ public class AiController {
         Map<String, Object> map = ThreadLocalUtil.get();
         Integer userId = (Integer) map.get("id");
         String prescriptionData = params.get("prescriptionData");
+        requireText(prescriptionData);
         return aiService.prescriptionAnalysisStream(userId, prescriptionData);
     }
 
@@ -73,6 +100,7 @@ public class AiController {
         Map<String, Object> map = ThreadLocalUtil.get();
         Integer userId = (Integer) map.get("id");
         String symptoms = params.get("symptoms");
+        requireText(symptoms);
         return aiService.diagnosisStream(userId, symptoms);
     }
 
@@ -81,6 +109,7 @@ public class AiController {
         Map<String, Object> map = ThreadLocalUtil.get();
         Integer userId = (Integer) map.get("id");
         String imageUrl = params.get("imageUrl");
+        requireUploadedImage(imageUrl);
         return aiService.herbRecognitionStream(userId, imageUrl);
     }
 
@@ -89,6 +118,7 @@ public class AiController {
         Map<String, Object> map = ThreadLocalUtil.get();
         Integer userId = (Integer) map.get("id");
         String imageUrl = params.get("imageUrl");
+        requireUploadedImage(imageUrl);
         return aiService.tongueDiagnosisStream(userId, imageUrl);
     }
 

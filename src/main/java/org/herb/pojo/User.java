@@ -26,6 +26,8 @@ public class User {
     @Pattern(regexp = "^\\S{1,10}$")
     private String nickname;//昵称
 
+    @NotEmpty
+    @Email
     private String email;//邮箱
 
     @URL

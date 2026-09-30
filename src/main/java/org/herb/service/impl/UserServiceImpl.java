@@ -10,6 +10,8 @@ import org.herb.pojo.User;
 import org.herb.service.UserService;
 import org.herb.utils.Md5Util;
 import org.herb.utils.ThreadLocalUtil;
+import org.herb.utils.CurrentUser;
+import org.herb.utils.PasswordUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,9 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private UserMapper userMapper;
 
+    @Autowired
+    private org.herb.service.SessionService sessionService;
+
     @Override
     public User FindByUserName(String username) {
         User u = userMapper.findByUserName(username);
@@ -37,15 +42,15 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void register(String username, String password, String email, String role) {
-        logger.info("User registration attempt - username: {}, email: {}", username, email);
-        String md5String = Md5Util.getMD5String(password);
-        userMapper.add(username, md5String, email, role);
+        logger.info("User registration attempt - username: {}", username);
+        userMapper.add(username, PasswordUtil.hash(password), email, role);
         logger.info("User registered successfully - username: {}", username);
     }
 
     @Override
     @Transactional
     public void update(User user) {
+        CurrentUser.requireSelf(user.getId());
         logger.info("Updating user info - userId: {}", user.getId());
         user.setUpdateTime(LocalDateTime.now());
         userMapper.update(user);
@@ -67,7 +72,7 @@ public class UserServiceImpl implements UserService {
         Map<String, Object> map = ThreadLocalUtil.get();
         Integer id = (Integer) map.get("id");
         logger.info("Updating password for userId: {}", id);
-        userMapper.updatePwd(Md5Util.getMD5String(newPwd), id);
+        userMapper.updatePwd(PasswordUtil.hash(newPwd), id);
         logger.info("Password updated successfully for userId: {}", id);
     }
 
@@ -100,6 +105,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void delete(Integer id) {
+        sessionService.revokeAll(id);
         logger.warn("Deleting user - userId: {}", id);
         userMapper.delete(id);
         logger.warn("User deleted successfully - userId: {}", id);

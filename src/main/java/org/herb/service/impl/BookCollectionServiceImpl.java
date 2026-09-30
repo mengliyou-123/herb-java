@@ -9,6 +9,8 @@ import org.herb.pojo.PageBean;
 import org.herb.pojo.Prescription;
 import org.herb.service.BookCollectionService;
 import org.herb.utils.ThreadLocalUtil;
+import org.herb.utils.CurrentUser;
+import org.herb.exception.ForbiddenException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,34 +28,43 @@ public class BookCollectionServiceImpl implements BookCollectionService {
     public void collect(Integer bookId) {
         Map<String, Object> map = ThreadLocalUtil.get();
         Integer userId = (Integer) map.get("id");
-        bookCollectionMapper.collect(bookId, userId);
+        if (bookCollectionMapper.isCollect(bookId, userId) == null) {
+            bookCollectionMapper.collect(bookId, userId);
+            bookCollectionMapper.addCollNum(bookId);
+        }
     }
 
     @Override
     @Transactional
     public void addCollNum(Integer id) {
-        bookCollectionMapper.addCollNum(id);
+        throw new ForbiddenException("请使用收藏接口");
     }
 
     @Override
     @Transactional
     public void delete(Integer id) {
-        bookCollectionMapper.delete(id);
+        Integer bookId = bookCollectionMapper.findOwnedBookId(id, CurrentUser.id());
+        if (bookId == null) throw new ForbiddenException("无权删除该收藏");
+        if (bookCollectionMapper.deleteOwned(id, CurrentUser.id()) == 1) {
+            bookCollectionMapper.subtractCollNum(bookId);
+        }
     }
 
     @Override
     @Transactional
     public void subtractCollNum(Integer id) {
-        bookCollectionMapper.subtractCollNum(id);
+        throw new ForbiddenException("请使用取消收藏接口");
     }
 
     @Override
     public BookCollection isCollect(Integer bookId, Integer userId) {
+        CurrentUser.requireSelf(userId);
         return bookCollectionMapper.isCollect(bookId, userId);
     }
 
     @Override
     public PageBean<Book> list(Integer pageNum, Integer pageSize, Integer userId) {
+        CurrentUser.requireSelf(userId);
         //创建pageBean对象封装查询好的对象
         PageBean<Book> pb = new PageBean<>();
 

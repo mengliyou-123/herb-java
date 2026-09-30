@@ -4,6 +4,9 @@ import org.herb.pojo.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -89,6 +92,19 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result handleException(Exception e) {
         logger.error("Unexpected error occurred: {}", e.getMessage(), e);
-        return Result.error(StringUtils.hasLength(e.getMessage()) ? e.getMessage() : "服务器内部错误，请稍后重试");
+        return Result.error("服务器内部错误，请稍后重试");
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Result handleDataConflict(DataIntegrityViolationException e) {
+        logger.warn("Database constraint rejected account change", e);
+        return Result.error("用户名或邮箱已被使用，或数据存在冲突");
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Result> handleResponseStatusException(ResponseStatusException e) {
+        return ResponseEntity.status(e.getStatusCode()).body(Result.error(
+                e.getReason() == null ? "请求被拒绝" : e.getReason()));
     }
 }

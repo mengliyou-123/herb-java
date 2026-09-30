@@ -8,6 +8,11 @@ import org.herb.pojo.Post;
 import org.herb.pojo.Prescription;
 import org.herb.service.PostCollectionService;
 import org.herb.utils.ThreadLocalUtil;
+import org.herb.utils.CurrentUser;
+import org.herb.exception.ForbiddenException;
+import org.herb.exception.NotFoundException;
+import org.herb.mapper.PostMapper;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -19,35 +24,49 @@ public class PostCollectionServiceImpl implements PostCollectionService {
     @Autowired
     private PostCollectionMapper postCollectionMapper;
 
+    @Autowired
+    private PostMapper postMapper;
+
     @Override
+    @Transactional
     public void collect(Integer postId) {
         Map<String, Object> map = ThreadLocalUtil.get();
         Integer userId = (Integer) map.get("id");
-        postCollectionMapper.collect(postId, userId);
+        if (postCollectionMapper.isCollect(postId, userId) == null) {
+            postCollectionMapper.collect(postId, userId);
+            postCollectionMapper.addCollNum(postId);
+        }
     }
 
     @Override
     public void addCollNum(Integer postId) {
-        postCollectionMapper.addCollNum(postId);
+        throw new ForbiddenException("请使用收藏接口");
     }
 
     @Override
+    @Transactional
     public void delete(Integer id) {
-        postCollectionMapper.delete(id);
+        Integer postId = postCollectionMapper.findOwnedPostId(id, CurrentUser.id());
+        if (postId == null) throw new ForbiddenException("无权删除该收藏");
+        if (postCollectionMapper.deleteOwned(id, CurrentUser.id()) == 1) {
+            postCollectionMapper.subtractCollNum(postId);
+        }
     }
 
     @Override
     public void subtractCollNum(Integer postId) {
-        postCollectionMapper.subtractCollNum(postId);
+        throw new ForbiddenException("请使用取消收藏接口");
     }
 
     @Override
     public Post isCollect(Integer postId, Integer userId) {
+        CurrentUser.requireSelf(userId);
         return postCollectionMapper.isCollect(postId, userId);
     }
 
     @Override
     public PageBean<Post> list(Integer pageNum, Integer pageSize, Integer userId) {
+        CurrentUser.requireSelf(userId);
         //创建pageBean对象封装查询好的对象
         PageBean<Post> pb = new PageBean<>();
 
@@ -68,6 +87,9 @@ public class PostCollectionServiceImpl implements PostCollectionService {
 
     @Override
     public void deleteByPostId(Integer postId) {
+        Post post = postMapper.findById(postId);
+        if (post == null) throw new NotFoundException("帖子不存在");
+        CurrentUser.requireOwnerOrAdmin(post.getPosterId());
         postCollectionMapper.deleteByPostId(postId);
     }
 

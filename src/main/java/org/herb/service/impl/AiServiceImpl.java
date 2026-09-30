@@ -4,7 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.zhipu.oapi.ClientV4;
 import org.herb.utils.zhipu.oapi.Constants;
 import com.zhipu.oapi.service.v4.model.*;
@@ -32,18 +32,19 @@ public class AiServiceImpl implements AiService {
     @Autowired
     private DiagnosisHistoryService diagnosisHistoryService;
 
-    private static final String API_KEY = "77ac40f6a6004646825d2561dcf9719d.g60df54MeiEE6Nkj";
-    private static final ClientV4 client = new ClientV4.Builder(API_KEY).build();
+    private static String requiredApiKey() { String key = System.getenv("ZHIPU_API_KEY"); if (key == null || key.isBlank()) throw new IllegalStateException("ZHIPU_API_KEY is not configured"); return key; }
+    private static final class ClientHolder { private static final ClientV4 INSTANCE = new ClientV4.Builder(requiredApiKey()).build(); }
     private static final ObjectMapper mapper = defaultObjectMapper();
     private static final String requestIdTemplate = "mycompany-%d";
     
-    private static final ExecutorService executorService = Executors.newCachedThreadPool();
+    private static final ExecutorService executorService = new ThreadPoolExecutor(
+            4, 8, 60, TimeUnit.SECONDS, new ArrayBlockingQueue<>(32));
 
     public static ObjectMapper defaultObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-        mapper.setPropertyNamingStrategy(PropertyNamingStrategy.SNAKE_CASE);
+        mapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         mapper.addMixIn(ChatFunction.class, ChatFunctionMixIn.class);
         mapper.addMixIn(ChatCompletionRequest.class, ChatCompletionRequestMixIn.class);
         mapper.addMixIn(ChatFunctionCall.class, ChatFunctionCallMixIn.class);
@@ -64,7 +65,7 @@ public class AiServiceImpl implements AiService {
                 .requestId(requestId)
                 .build();
         
-        ModelApiResponse sseModelApiResp = client.invokeModelApi(chatCompletionRequest);
+        ModelApiResponse sseModelApiResp = ClientHolder.INSTANCE.invokeModelApi(chatCompletionRequest);
         if (!sseModelApiResp.isSuccess()) {
             return "抱歉，服务暂时不可用，请稍后再试。";
         }
@@ -73,20 +74,16 @@ public class AiServiceImpl implements AiService {
             ChatMessageAccumulator chatMessageAccumulator = mapStreamToAccumulator(sseModelApiResp.getFlowable())
                     .doOnNext(accumulator -> {
                         {
-                            if (isFirst.getAndSet(false)) {
-                                System.out.print("Response: ");
-                            }
+                            isFirst.getAndSet(false);
                             if (accumulator.getDelta() != null && accumulator.getDelta().getTool_calls() != null) {
                                 String jsonString = mapper.writeValueAsString(accumulator.getDelta().getTool_calls());
-                                System.out.println("tool_calls: " + jsonString);
                             }
                             if (accumulator.getDelta() != null && accumulator.getDelta().getContent() != null) {
-                                System.out.print(accumulator.getDelta().getContent());
                                 builder.append(accumulator.getDelta().getContent());
                             }
                         }
                     })
-                    .doOnComplete(System.out::println)
+                    .doOnComplete(() -> {})
                     .lastElement()
                     .blockingGet();
 
@@ -124,7 +121,7 @@ public class AiServiceImpl implements AiService {
                         .requestId(requestId)
                         .build();
 
-                ModelApiResponse sseModelApiResp = client.invokeModelApi(chatCompletionRequest);
+                ModelApiResponse sseModelApiResp = ClientHolder.INSTANCE.invokeModelApi(chatCompletionRequest);
                 
                 if (!sseModelApiResp.isSuccess()) {
                     emitter.send(SseEmitter.event().data("抱歉，服务暂时不可用，请稍后再试。"));
@@ -147,14 +144,14 @@ public class AiServiceImpl implements AiService {
                     emitter.complete();
                 })
                 .doOnError(error -> {
-                    emitter.send(SseEmitter.event().data("发生错误: " + error.getMessage()));
+                    emitter.send(SseEmitter.event().data("服务暂时不可用，请稍后重试"));
                     emitter.completeWithError(error);
                 })
                 .blockingSubscribe();
                 
             } catch (Exception e) {
                 try {
-                    emitter.send(SseEmitter.event().data("发生错误: " + e.getMessage()));
+                    emitter.send(SseEmitter.event().data("服务暂时不可用，请稍后重试"));
                     emitter.completeWithError(e);
                 } catch (IOException ex) {
                     ex.printStackTrace();
@@ -167,7 +164,7 @@ public class AiServiceImpl implements AiService {
             System.out.println("SSE timeout");
             emitter.complete();
         });
-        emitter.onError(e -> System.out.println("SSE error: " + e.getMessage()));
+        emitter.onError(e -> System.out.println("SSE error"));
         
         return emitter;
     }
@@ -300,7 +297,7 @@ public class AiServiceImpl implements AiService {
                 .requestId(requestId)
                 .build();
         
-        ModelApiResponse modelApiResponse = client.invokeModelApi(chatCompletionRequest);
+        ModelApiResponse modelApiResponse = ClientHolder.INSTANCE.invokeModelApi(chatCompletionRequest);
         if (modelApiResponse.isSuccess() && modelApiResponse.getData() != null) {
             List<Choice> choices = modelApiResponse.getData().getChoices();
             if (choices != null && !choices.isEmpty()) {
@@ -374,7 +371,7 @@ public class AiServiceImpl implements AiService {
                         .requestId(requestId)
                         .build();
 
-                ModelApiResponse sseModelApiResp = client.invokeModelApi(chatCompletionRequest);
+                ModelApiResponse sseModelApiResp = ClientHolder.INSTANCE.invokeModelApi(chatCompletionRequest);
                 
                 if (!sseModelApiResp.isSuccess()) {
                     emitter.send(SseEmitter.event().data("抱歉，服务暂时不可用，请稍后再试。"));
@@ -397,14 +394,14 @@ public class AiServiceImpl implements AiService {
                     emitter.complete();
                 })
                 .doOnError(error -> {
-                    emitter.send(SseEmitter.event().data("发生错误: " + error.getMessage()));
+                    emitter.send(SseEmitter.event().data("服务暂时不可用，请稍后重试"));
                     emitter.completeWithError(error);
                 })
                 .blockingSubscribe();
                 
             } catch (Exception e) {
                 try {
-                    emitter.send(SseEmitter.event().data("发生错误: " + e.getMessage()));
+                    emitter.send(SseEmitter.event().data("服务暂时不可用，请稍后重试"));
                     emitter.completeWithError(e);
                 } catch (IOException ex) {
                     ex.printStackTrace();
@@ -417,7 +414,7 @@ public class AiServiceImpl implements AiService {
             System.out.println("SSE timeout");
             emitter.complete();
         });
-        emitter.onError(e -> System.out.println("SSE error: " + e.getMessage()));
+        emitter.onError(e -> System.out.println("SSE error"));
         
         return emitter;
     }
@@ -490,7 +487,7 @@ public class AiServiceImpl implements AiService {
                         .requestId(requestId)
                         .build();
 
-                ModelApiResponse sseModelApiResp = client.invokeModelApi(chatCompletionRequest);
+                ModelApiResponse sseModelApiResp = ClientHolder.INSTANCE.invokeModelApi(chatCompletionRequest);
                 
                 if (!sseModelApiResp.isSuccess()) {
                     emitter.send(SseEmitter.event().data("抱歉，服务暂时不可用，请稍后再试。"));
@@ -513,14 +510,14 @@ public class AiServiceImpl implements AiService {
                     emitter.complete();
                 })
                 .doOnError(error -> {
-                    emitter.send(SseEmitter.event().data("发生错误: " + error.getMessage()));
+                    emitter.send(SseEmitter.event().data("服务暂时不可用，请稍后重试"));
                     emitter.completeWithError(error);
                 })
                 .blockingSubscribe();
                 
             } catch (Exception e) {
                 try {
-                    emitter.send(SseEmitter.event().data("发生错误: " + e.getMessage()));
+                    emitter.send(SseEmitter.event().data("服务暂时不可用，请稍后重试"));
                     emitter.completeWithError(e);
                 } catch (IOException ex) {
                     ex.printStackTrace();
@@ -533,7 +530,7 @@ public class AiServiceImpl implements AiService {
             System.out.println("SSE timeout");
             emitter.complete();
         });
-        emitter.onError(e -> System.out.println("SSE error: " + e.getMessage()));
+        emitter.onError(e -> System.out.println("SSE error"));
         
         return emitter;
     }

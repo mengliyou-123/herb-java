@@ -21,8 +21,14 @@ public interface PreCollectionMapper {
     @Delete("delete from pre_collection where id=#{id}")
     void delete(Integer id);
 
+    @Select("select pre_id from pre_collection where id=#{id} and user_id=#{userId}")
+    Integer findOwnedPreId(Integer id, Integer userId);
+
+    @Delete("delete from pre_collection where id=#{id} and user_id=#{userId}")
+    int deleteOwned(Integer id, Integer userId);
+
     //收藏数-1
-    @Update("update prescription set coll_num=coll_num-1 where id=#{preId}")
+    @Update("update prescription set coll_num=greatest(coll_num-1,0) where id=#{preId}")
     void subtractCollNum(Integer preId);
 
     //根据userId和preId查找收藏表里的项

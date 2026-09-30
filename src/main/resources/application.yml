@@ -1,14 +1,16 @@
+server:
+  address: ${HERB_BIND_ADDRESS:127.0.0.1}
+
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/herb01?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: root
-    password: mengliyou
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/herb01?useUnicode=true&characterEncoding=utf8&sslMode=REQUIRED&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:herb_app}
+    password: ${DB_PASSWORD}
   data:
     redis:
       host: localhost
       port: 6379
-      password: ""
   servlet:
     multipart:
       max-file-size: 5MB
@@ -23,3 +25,12 @@ spring:
 mybatis:
   configuration:
     map-underscore-to-camel-case: true #开启驼峰命名和下划线命名的自动转换
+
+app:
+  allowed-origins: ${HERB_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+
+springdoc:
+  api-docs:
+    enabled: ${HERB_API_DOCS_ENABLED:false}
+  swagger-ui:
+    enabled: ${HERB_API_DOCS_ENABLED:false}

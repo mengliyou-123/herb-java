@@ -17,7 +17,13 @@ public interface PostCollectionMapper {
     @Delete("delete from post_collection where id=#{id}")
     void delete(Integer id);
 
-    @Update("update post set coll_num=coll_num-1 where id=#{postId}")
+    @Select("select post_id from post_collection where id=#{id} and user_id=#{userId}")
+    Integer findOwnedPostId(Integer id, Integer userId);
+
+    @Delete("delete from post_collection where id=#{id} and user_id=#{userId}")
+    int deleteOwned(Integer id, Integer userId);
+
+    @Update("update post set coll_num=greatest(coll_num-1,0) where id=#{postId}")
     void subtractCollNum(Integer postId);
 
     @Select("select * from post_collection where post_id=#{postId} and user_id=#{userId}")

@@ -45,8 +45,11 @@ public class Md5Util {
 
 
     public static String getMD5String(byte[] bytes) {
-        messagedigest.update(bytes);
-        return bufferToHex(messagedigest.digest());
+        try {
+            return bufferToHex(MessageDigest.getInstance("MD5").digest(bytes));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("MD5 unavailable for legacy password migration", ex);
+        }
     }
 
     private static String bufferToHex(byte bytes[]) {

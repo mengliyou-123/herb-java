@@ -6,7 +6,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.zhipu.oapi.ClientV4;
 import org.herb.utils.zhipu.oapi.Constants;
 import com.zhipu.oapi.service.v4.embedding.EmbeddingApiResponse;
@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class V4OkHttpClientTest {
 
-    private static final String API_KEY = "77ac40f6a6004646825d2561dcf9719d.g60df54MeiEE6Nkj";
+    private static final String API_KEY = System.getenv("ZHIPU_API_KEY");
 
 
     private static final ClientV4 client = new ClientV4.Builder(API_KEY).build();
@@ -41,7 +41,7 @@ public class V4OkHttpClientTest {
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-        mapper.setPropertyNamingStrategy(PropertyNamingStrategy.SNAKE_CASE);
+        mapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         mapper.addMixIn(ChatFunction.class, ChatFunctionMixIn.class);
         mapper.addMixIn(ChatCompletionRequest.class, ChatCompletionRequestMixIn.class);
         mapper.addMixIn(ChatFunctionCall.class, ChatFunctionCallMixIn.class);
@@ -125,4 +125,3 @@ public class V4OkHttpClientTest {
     }
 
 }
-
