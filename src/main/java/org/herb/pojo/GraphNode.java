@@ -8,4 +8,8 @@ public class GraphNode {
     private String name;
     private String category;
     private String description;
+    private Integer dbId;
+    private String image;
+    private Integer symbolSize;
+    private Integer value;
 }
