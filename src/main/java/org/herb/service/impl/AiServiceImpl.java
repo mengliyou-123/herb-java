@@ -4,7 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.zhipu.oapi.ClientV4;
 import org.herb.utils.zhipu.oapi.Constants;
 import com.zhipu.oapi.service.v4.model.*;
@@ -36,8 +36,8 @@ public class AiServiceImpl implements AiService {
     @Autowired
     private TcmAgentClient tcmAgentClient;
 
-    private static final String API_KEY = "77ac40f6a6004646825d2561dcf9719d.g60df54MeiEE6Nkj";
-    private static final ClientV4 client = new ClientV4.Builder(API_KEY).build();
+    private static String requiredApiKey() { String key = System.getenv("ZHIPU_API_KEY"); if (key == null || key.isBlank()) throw new IllegalStateException("ZHIPU_API_KEY is not configured"); return key; }
+    private static final class ClientHolder { private static final ClientV4 INSTANCE = new ClientV4.Builder(requiredApiKey()).build(); }
     private static final ObjectMapper mapper = defaultObjectMapper();
     private static final String requestIdTemplate = "mycompany-%d";
     
@@ -47,7 +47,7 @@ public class AiServiceImpl implements AiService {
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-        mapper.setPropertyNamingStrategy(PropertyNamingStrategy.SNAKE_CASE);
+        mapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         mapper.addMixIn(ChatFunction.class, ChatFunctionMixIn.class);
         mapper.addMixIn(ChatCompletionRequest.class, ChatCompletionRequestMixIn.class);
         mapper.addMixIn(ChatFunctionCall.class, ChatFunctionCallMixIn.class);
@@ -68,7 +68,7 @@ public class AiServiceImpl implements AiService {
                 .requestId(requestId)
                 .build();
         
-        ModelApiResponse sseModelApiResp = client.invokeModelApi(chatCompletionRequest);
+        ModelApiResponse sseModelApiResp = ClientHolder.INSTANCE.invokeModelApi(chatCompletionRequest);
         if (!sseModelApiResp.isSuccess()) {
             return "抱歉，服务暂时不可用，请稍后再试。";
         }
@@ -128,7 +128,7 @@ public class AiServiceImpl implements AiService {
                         .requestId(requestId)
                         .build();
 
-                ModelApiResponse sseModelApiResp = client.invokeModelApi(chatCompletionRequest);
+                ModelApiResponse sseModelApiResp = ClientHolder.INSTANCE.invokeModelApi(chatCompletionRequest);
                 
                 if (!sseModelApiResp.isSuccess()) {
                     emitter.send(SseEmitter.event().data("抱歉，服务暂时不可用，请稍后再试。"));
@@ -353,7 +353,7 @@ public class AiServiceImpl implements AiService {
                 .requestId(requestId)
                 .build();
         
-        ModelApiResponse modelApiResponse = client.invokeModelApi(chatCompletionRequest);
+        ModelApiResponse modelApiResponse = ClientHolder.INSTANCE.invokeModelApi(chatCompletionRequest);
         if (modelApiResponse.isSuccess() && modelApiResponse.getData() != null) {
             List<Choice> choices = modelApiResponse.getData().getChoices();
             if (choices != null && !choices.isEmpty()) {
@@ -427,7 +427,7 @@ public class AiServiceImpl implements AiService {
                         .requestId(requestId)
                         .build();
 
-                ModelApiResponse sseModelApiResp = client.invokeModelApi(chatCompletionRequest);
+                ModelApiResponse sseModelApiResp = ClientHolder.INSTANCE.invokeModelApi(chatCompletionRequest);
                 
                 if (!sseModelApiResp.isSuccess()) {
                     emitter.send(SseEmitter.event().data("抱歉，服务暂时不可用，请稍后再试。"));
@@ -543,7 +543,7 @@ public class AiServiceImpl implements AiService {
                         .requestId(requestId)
                         .build();
 
-                ModelApiResponse sseModelApiResp = client.invokeModelApi(chatCompletionRequest);
+                ModelApiResponse sseModelApiResp = ClientHolder.INSTANCE.invokeModelApi(chatCompletionRequest);
                 
                 if (!sseModelApiResp.isSuccess()) {
                     emitter.send(SseEmitter.event().data("抱歉，服务暂时不可用，请稍后再试。"));
