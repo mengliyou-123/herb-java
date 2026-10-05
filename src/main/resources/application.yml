@@ -1,4 +1,5 @@
 server:
+  port: 8081
   address: ${HERB_BIND_ADDRESS:127.0.0.1}
 
 spring:

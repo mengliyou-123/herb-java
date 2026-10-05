@@ -22,8 +22,8 @@ public class AliOssUtil {
     }
 
     public static String uploadFile(String objectName, InputStream in, boolean privateObject) {
-        String id = System.getenv("OSS_ACCESS_KEY_ID");
-        String secret = System.getenv("OSS_ACCESS_KEY_SECRET");
+        String id = org.herb.config.LocalEnvironment.get("OSS_ACCESS_KEY_ID");
+        String secret = org.herb.config.LocalEnvironment.get("OSS_ACCESS_KEY_SECRET");
         if (id == null || id.isBlank() || secret == null || secret.isBlank()) {
             throw new IllegalStateException("OSS credentials are not configured");
         }

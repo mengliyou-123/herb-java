@@ -9,7 +9,7 @@ if (-not (Test-Path -LiteralPath $settingsPath)) {
 $allowed = @('DB_URL', 'DB_USERNAME', 'DB_PASSWORD', 'REDIS_HOST', 'REDIS_PORT',
     'SPRING_DATA_REDIS_PASSWORD', 'HERB_JWT_SECRET', 'OSS_ACCESS_KEY_ID',
     'OSS_ACCESS_KEY_SECRET', 'ZHIPU_API_KEY', 'HERB_BIND_ADDRESS',
-    'HERB_API_DOCS_ENABLED')
+    'HERB_API_DOCS_ENABLED', 'HERB_ALLOWED_ORIGINS')
 foreach ($line in Get-Content -LiteralPath $settingsPath) {
     if ($line.Trim().Length -eq 0 -or $line.TrimStart().StartsWith('#')) { continue }
     $parts = $line -split '=', 2
@@ -21,7 +21,9 @@ foreach ($line in Get-Content -LiteralPath $settingsPath) {
 
 Push-Location $PSScriptRoot
 try {
-    mvn -gs maven-settings.xml -s maven-settings.xml spring-boot:run '-Dspring-boot.run.arguments=--server.port=8081'
+    mvn -gs maven-settings.xml -s maven-settings.xml spring-boot:run
+    $runExitCode = $LASTEXITCODE
 } finally {
     Pop-Location
 }
+exit $runExitCode

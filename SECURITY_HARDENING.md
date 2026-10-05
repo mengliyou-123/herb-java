@@ -1,5 +1,14 @@
 # Security hardening and rollback
 
+## Local startup (IDE and scripts)
+
+The backend defaults to port 8081, matching the frontend proxy. Running
+`HerbApplication` directly also loads the ignored `.env.local` from the project
+directory (or the project containing `target/classes`). Explicit environment
+variables and JVM properties take precedence. Do not commit `.env.local`.
+Double-click `start-local-all.cmd` to launch the local stack and check its proxy.
+Remove old IDE port overrides if they explicitly select 8080.
+
 The backend security changes are now in the original project directory. The
 four pre-existing local edits were saved in the Git-ignored, Windows
 user-encrypted `.security-backup.local` before their security-sensitive lines

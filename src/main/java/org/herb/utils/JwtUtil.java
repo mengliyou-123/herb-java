@@ -10,7 +10,7 @@ public final class JwtUtil {
     private JwtUtil() {}
 
     private static Algorithm algorithm() {
-        String key = System.getenv("HERB_JWT_SECRET");
+        String key = org.herb.config.LocalEnvironment.get("HERB_JWT_SECRET");
         if (key == null || key.length() < 32) {
             throw new IllegalStateException("HERB_JWT_SECRET must have at least 32 characters");
         }

@@ -12,6 +12,7 @@ public class HerbApplication
 {
     public static void main( String[] args )
     {
+        org.herb.config.LocalEnvironment.load();
         SpringApplication.run(HerbApplication.class,args);
         //System.out.println( "Hello World!" );
     }

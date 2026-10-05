@@ -26,7 +26,7 @@ import static com.zhipu.oapi.service.v4.api.ChatApiService.defaultObjectMapper;
 @Service
 public class PcmRecommendServiceImpl implements PcmRecommendService {
 
-    private static String requiredApiKey() { String key = System.getenv("ZHIPU_API_KEY"); if (key == null || key.isBlank()) throw new IllegalStateException("ZHIPU_API_KEY is not configured"); return key; }
+    private static String requiredApiKey() { String key = org.herb.config.LocalEnvironment.get("ZHIPU_API_KEY"); if (key == null || key.isBlank()) throw new IllegalStateException("ZHIPU_API_KEY is not configured"); return key; }
     private static final class ClientHolder { private static final ClientV4 INSTANCE = new ClientV4.Builder(requiredApiKey()).build(); }
     private static final ObjectMapper mapper = defaultObjectMapper();
     private static final String requestIdTemplate = "mycompany-%d";
